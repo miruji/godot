@@ -111,6 +111,13 @@ thirdparty_minizip_sources = ["ioapi.c", "unzip.c", "zip.c"]
 thirdparty_minizip_sources = [thirdparty_minizip_dir + file for file in thirdparty_minizip_sources]
 env_thirdparty.add_source_files(thirdparty_obj, thirdparty_minizip_sources)
 
+# LZAV
+if env["builtin_lzav"]:
+    thirdparty_lzav_dir = "#thirdparty/lzav/"
+
+    env_thirdparty.Prepend(CPPEXTPATH=[thirdparty_lzav_dir])
+    env.Prepend(CPPEXTPATH=[thirdparty_lzav_dir])
+
 # Zstd library, can be unbundled in theory
 # though we currently use some private symbols
 # https://github.com/godotengine/godot/issues/17374

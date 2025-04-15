@@ -280,6 +280,7 @@ opts.Add(BoolVariable("builtin_rvo2_3d", "Use the built-in RVO2 3D library", Tru
 opts.Add(BoolVariable("builtin_xatlas", "Use the built-in xatlas library", True))
 opts.Add(BoolVariable("builtin_zlib", "Use the built-in zlib library", True))
 opts.Add(BoolVariable("builtin_zstd", "Use the built-in Zstd library", True))
+opts.Add(BoolVariable("builtin_lzav", "Use the built-in LZAV library", True))
 
 # Compilation environment setup
 # CXX, CC, and LINK directly set the equivalent `env` values (which may still
