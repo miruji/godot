@@ -66,7 +66,12 @@ int Compression::compress(uint8_t *p_dst, const uint8_t *p_src, int p_src_size, 
 
 		} break;
 		case MODE_DEFLATE:
-		case MODE_GZIP: {
+		case MODE_GZIP: 
+		case MODE_LZAV: {
+			if (lzav) {
+				return compress_lzav(p_dst, p_src, p_src_size);
+			}
+
 			int window_bits = p_mode == MODE_DEFLATE ? 15 : 15 + 16;
 
 			z_stream strm;
@@ -102,23 +107,24 @@ int Compression::compress(uint8_t *p_dst, const uint8_t *p_src, int p_src_size, 
 			ZSTD_freeCCtx(cctx);
 			return ret;
 		} break;
-        case MODE_LZAV: {
-			int max_len = lzav_compress_bound(p_src_size);
-			ERR_FAIL_COND_V(get_max_compressed_buffer_size(p_src_size, MODE_LZAV) < max_len, -1);
-
-			int ret = lzav_compress_default(
-				p_src,
-				p_dst,
-				p_src_size,
-				max_len
-			);
-
-			ERR_FAIL_COND_V(ret == 0 && p_src_size != 0, -1);
-			return ret;
-        } break;
 	}
 
 	ERR_FAIL_V(-1);
+}
+
+int Compression::compress_lzav(uint8_t *p_dst, const uint8_t *p_src, int p_src_size) {
+	int max_len = lzav_compress_bound(p_src_size);
+	ERR_FAIL_COND_V(get_max_compressed_buffer_size(p_src_size, MODE_LZAV) < max_len, -1);
+
+	int ret = lzav_compress_default(
+		p_src,
+		p_dst,
+		p_src_size,
+		max_len
+	);
+
+	ERR_FAIL_COND_V(ret == 0 && p_src_size != 0, -1);
+	return ret;
 }
 
 int Compression::get_max_compressed_buffer_size(int p_src_size, Mode p_mode) {
@@ -135,7 +141,12 @@ int Compression::get_max_compressed_buffer_size(int p_src_size, Mode p_mode) {
 
 		} break;
 		case MODE_DEFLATE:
-		case MODE_GZIP: {
+		case MODE_GZIP: 
+		case MODE_LZAV: {
+			if (lzav) {
+				return lzav_compress_bound(p_src_size);
+			}
+
 			int window_bits = p_mode == MODE_DEFLATE ? 15 : 15 + 16;
 
 			z_stream strm;
@@ -153,9 +164,6 @@ int Compression::get_max_compressed_buffer_size(int p_src_size, Mode p_mode) {
 		case MODE_ZSTD: {
 			return ZSTD_compressBound(p_src_size);
 		} break;
-        case MODE_LZAV: {
-            return lzav_compress_bound(p_src_size);
-        } break;
 	}
 
 	ERR_FAIL_V(-1);
@@ -187,7 +195,12 @@ int Compression::decompress(uint8_t *p_dst, int p_dst_max_size, const uint8_t *p
 			return ret_size;
 		} break;
 		case MODE_DEFLATE:
-		case MODE_GZIP: {
+		case MODE_GZIP: 
+		case MODE_LZAV: {
+			if (lzav) {
+				return decompress_lzav(p_dst, p_dst_max_size, p_src, p_src_size);
+			}
+
 			int window_bits = p_mode == MODE_DEFLATE ? 15 : 15 + 16;
 
 			z_stream strm;
@@ -229,14 +242,15 @@ int Compression::decompress(uint8_t *p_dst, int p_dst_max_size, const uint8_t *p
 			int ret = ZSTD_decompressDCtx(current_zstd_d_ctx, p_dst, p_dst_max_size, p_src, p_src_size);
 			return ret;
 		} break;
-        case MODE_LZAV: {
-            int ret = lzav_decompress(p_src, p_dst, p_src_size, p_dst_max_size);
-            ERR_FAIL_COND_V(ret < 0, -1);
-            return ret;
-        } break;
 	}
 
 	ERR_FAIL_V(-1);
+}
+
+int Compression::decompress_lzav(uint8_t *p_dst, int p_dst_max_size, const uint8_t *p_src, int p_src_size) {
+	int ret = lzav_decompress(p_src, p_dst, p_src_size, p_dst_max_size);
+	ERR_FAIL_COND_V(ret < 0, -1);
+	return ret;
 }
 
 /**
@@ -394,3 +408,4 @@ int Compression::zstd_level = 3;
 bool Compression::zstd_long_distance_matching = false;
 int Compression::zstd_window_log_size = 27; // ZSTD_WINDOWLOG_LIMIT_DEFAULT
 int Compression::gzip_chunk = 16384;
+bool Compression::lzav = false;
