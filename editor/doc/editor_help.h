@@ -38,6 +38,8 @@
 #include "scene/gui/rich_text_label.h"
 #include "scene/gui/text_edit.h"
 #include "scene/main/timer.h"
+#include "scene/gui/scroll_bar.h"
+#include "scene/gui/panel_container.h"
 
 class FindBar : public HBoxContainer {
 	GDCLASS(FindBar, HBoxContainer);
@@ -177,6 +179,10 @@ class EditorHelp : public VBoxContainer {
 	void _class_desc_input(const Ref<InputEvent> &p_input);
 	void _class_desc_resized(bool p_force_update_theme);
 	int display_margin = 0;
+	VScrollBar *class_desc_vscroll = nullptr;
+	PanelContainer *class_desc_panel = nullptr;
+	Control *class_desc_margin_left = nullptr;
+	Control *class_desc_margin_right = nullptr;
 
 	Error _goto_desc(const String &p_class, bool p_can_trigger_save_history);
 	//void _update_history_buttons();

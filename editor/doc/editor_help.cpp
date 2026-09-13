@@ -397,16 +397,32 @@ void EditorHelp::_class_desc_input(const Ref<InputEvent> &p_input) {
 void EditorHelp::_class_desc_resized(bool p_force_update_theme) {
 	// Add extra horizontal margins for better readability.
 	// The margins increase as the width of the editor help container increases.
+	// Side margins are applied via outer spacers so RichTextLabel is not
+	// theme-invalidated on every resize (see #105452).
 	real_t char_width = theme_cache.doc_code_font->get_char_size('x', theme_cache.doc_code_font_size).width;
 	const int new_display_margin = MAX(30 * EDSCALE, get_parent_anchorable_rect().size.width - char_width * 120 * EDSCALE) * 0.5;
+
 	if (display_margin != new_display_margin || p_force_update_theme) {
 		display_margin = new_display_margin;
 
-		Ref<StyleBox> class_desc_stylebox = theme_cache.background_style->duplicate();
-		class_desc_stylebox->set_content_margin(SIDE_LEFT, display_margin);
-		class_desc_stylebox->set_content_margin(SIDE_RIGHT, display_margin);
-		class_desc->add_theme_style_override(CoreStringName(normal), class_desc_stylebox);
-		class_desc->add_theme_style_override("focused", class_desc_stylebox);
+		if (class_desc_margin_left) {
+			class_desc_margin_left->set_custom_minimum_size(Size2(display_margin, 0));
+		}
+		if (class_desc_margin_right) {
+			class_desc_margin_right->set_custom_minimum_size(Size2(display_margin, 0));
+		}
+	}
+
+	if (p_force_update_theme) {
+		// Full-width background on the wrapper; side margins are spacers only.
+		if (class_desc_panel && theme_cache.background_style.is_valid()) {
+			class_desc_panel->add_theme_style_override(SceneStringName(panel), theme_cache.background_style);
+		}
+		// RTL without its own panel fill (avoids double background / old full-width style).
+		Ref<StyleBoxEmpty> empty_sb;
+		empty_sb.instantiate();
+		class_desc->add_theme_style_override(CoreStringName(normal), empty_sb);
+		class_desc->add_theme_style_override("focused", empty_sb);
 	}
 }
 
@@ -2456,7 +2472,9 @@ void EditorHelp::_class_desc_scroll_to_paragraph(int p_line, bool p_save_history
 			emit_signal(SNAME("_request_save_new_history"), state);
 		}
 	}
+
 	class_desc->scroll_to_paragraph(p_line);
+
 	// Save history after scrolling.
 	if (p_save_history) {
 		emit_signal(SNAME("_request_save_new_history"), get_state());
@@ -3525,18 +3543,50 @@ void EditorHelp::init_gdext_pointers() {
 EditorHelp::EditorHelp() {
 	set_custom_minimum_size(Size2(150 * EDSCALE, 0));
 
+	HBoxContainer *desc_root = memnew(HBoxContainer);
+	desc_root->set_v_size_flags(SIZE_EXPAND_FILL);
+	add_child(desc_root);
+
+	class_desc_panel = memnew(PanelContainer);
+	class_desc_panel->set_h_size_flags(SIZE_EXPAND_FILL);
+	class_desc_panel->set_v_size_flags(SIZE_EXPAND_FILL);
+	desc_root->add_child(class_desc_panel);
+
+	HBoxContainer *desc_hbox = memnew(HBoxContainer);
+	class_desc_panel->add_child(desc_hbox);
+
+	class_desc_margin_left = memnew(Control);
+	class_desc_margin_left->set_mouse_filter(MOUSE_FILTER_IGNORE);
+	desc_hbox->add_child(class_desc_margin_left);
+
 	class_desc = memnew(RichTextLabel);
 	class_desc->set_tab_size(8);
 	class_desc->set_autowrap_trim_flags(TextServer::BREAK_TRIM_END_EDGE_SPACES);
-	add_child(class_desc);
+	class_desc->set_scroll_active(true);
+	// НЕ set_fit_content(true)
+	desc_hbox->add_child(class_desc);
+
+	class_desc_margin_right = memnew(Control);
+	class_desc_margin_right->set_mouse_filter(MOUSE_FILTER_IGNORE);
+	desc_hbox->add_child(class_desc_margin_right);
 
 	class_desc->set_threaded(true);
+	class_desc->set_h_size_flags(SIZE_EXPAND_FILL);
 	class_desc->set_v_size_flags(SIZE_EXPAND_FILL);
+
+	// Внешний скролл справа (как раньше у края окна).
+	class_desc_vscroll = memnew(VScrollBar);
+	class_desc_vscroll->set_v_size_flags(SIZE_EXPAND_FILL);
+	desc_root->add_child(class_desc_vscroll);
+
+	// Один Range на двоих: колёсико/RTL и внешний бар синхронны.
+	class_desc_vscroll->share(class_desc->get_v_scroll_bar());
+	class_desc->set_vertical_scrollbar_mode(Control::SCROLLBAR_MODE_NEVER);
 
 	class_desc->connect(SceneStringName(finished), callable_mp(this, &EditorHelp::_class_desc_finished));
 	class_desc->connect("meta_clicked", callable_mp(this, &EditorHelp::_class_desc_select));
 	class_desc->connect(SceneStringName(gui_input), callable_mp(this, &EditorHelp::_class_desc_input));
-	class_desc->connect(SceneStringName(resized), callable_mp(this, &EditorHelp::_class_desc_resized).bind(false));
+	class_desc_panel->connect(SceneStringName(resized), callable_mp(this, &EditorHelp::_class_desc_resized).bind(false));
 
 	// Added second so it opens at the bottom so it won't offset the entire widget.
 	find_bar = memnew(FindBar);
