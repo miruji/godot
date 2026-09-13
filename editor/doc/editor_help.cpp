@@ -391,7 +391,30 @@ void EditorHelp::_class_desc_select(const String &p_select) {
 	}
 }
 
-void EditorHelp::_class_desc_input(const Ref<InputEvent> &p_input) {
+void EditorHelp::_class_desc_input(const Ref<InputEvent> &p_event) {
+    Ref<InputEventMouseButton> mb = p_event;
+    if (mb.is_null() || !mb->is_pressed()) {
+        return;
+    }
+
+    // Воспроизводим логику ScrollBar::gui_input из движка
+    double page = class_desc_vscroll->get_page();
+    double change = page != 0.0 ? page / 4.0 : (class_desc_vscroll->get_max() - class_desc_vscroll->get_min()) / 16.0;
+    change = MAX(change, class_desc_vscroll->get_step());
+    change *= mb->get_factor(); // Учитываем мультипликатор для тачпадов
+
+    switch (mb->get_button_index()) {
+        case MouseButton::WHEEL_UP:
+            class_desc_vscroll->set_value(class_desc_vscroll->get_value() - change);
+            get_viewport()->set_input_as_handled();
+            break;
+        case MouseButton::WHEEL_DOWN:
+            class_desc_vscroll->set_value(class_desc_vscroll->get_value() + change);
+            get_viewport()->set_input_as_handled();
+            break;
+        default:
+            break;
+    }
 }
 
 void EditorHelp::_class_desc_resized(bool p_force_update_theme) {
@@ -3574,18 +3597,18 @@ EditorHelp::EditorHelp() {
 	class_desc->set_h_size_flags(SIZE_EXPAND_FILL);
 	class_desc->set_v_size_flags(SIZE_EXPAND_FILL);
 
-	// Внешний скролл справа (как раньше у края окна).
+	// Внешний скролл справа
 	class_desc_vscroll = memnew(VScrollBar);
 	class_desc_vscroll->set_v_size_flags(SIZE_EXPAND_FILL);
 	desc_root->add_child(class_desc_vscroll);
 
 	// Один Range на двоих: колёсико/RTL и внешний бар синхронны.
 	class_desc_vscroll->share(class_desc->get_v_scroll_bar());
-	class_desc->set_vertical_scrollbar_mode(Control::SCROLLBAR_MODE_NEVER);
+	class_desc->set_scroll_active(false);
 
 	class_desc->connect(SceneStringName(finished), callable_mp(this, &EditorHelp::_class_desc_finished));
 	class_desc->connect("meta_clicked", callable_mp(this, &EditorHelp::_class_desc_select));
-	class_desc->connect(SceneStringName(gui_input), callable_mp(this, &EditorHelp::_class_desc_input));
+	class_desc_panel->connect(SceneStringName(gui_input), callable_mp(this, &EditorHelp::_class_desc_input));
 	class_desc_panel->connect(SceneStringName(resized), callable_mp(this, &EditorHelp::_class_desc_resized).bind(false));
 
 	// Added second so it opens at the bottom so it won't offset the entire widget.
